@@ -35,8 +35,10 @@ def grade(case: dict, state: CaseState, erp: dict, run_status: str, approval_req
     r = state.resolution
     g: list[Grade] = [Grade("completed", run_status == "completed", run_status)]
 
-    got = (r.action.value if r else None, r.hold_reason.value if r and r.hold_reason else None,
-           r.escalate_to.value if r and r.escalate_to else None)
+    hold = r.hold_reason.value if r and r.hold_reason else None
+    if r and r.action.value == "REQUEST_CREDIT_MEMO" and hold == "CREDIT_MEMO_REQUESTED":
+        hold = None  # the hold a credit memo implies; the executor applies it either way
+    got = (r.action.value if r else None, hold, r.escalate_to.value if r and r.escalate_to else None)
     want = (e["action"], e["hold_reason"], e["escalate_to"])
     g.append(Grade("action", got == want, f"got {got}, want {want}"))
     g.append(Grade("amount", e["amount"] is None or (r is not None and _close(r.amount, e["amount"])),

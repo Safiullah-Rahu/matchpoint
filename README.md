@@ -10,8 +10,10 @@ citations, human-in-the-loop approval, model routing with retries and fallbacks,
 OpenTelemetry-style tracing, and an eval suite that measures reliability (pass^k), safety and the effect of each control.
 
 Runs fully offline with a deterministic reference model (no key, no cost), and on Claude when `ANTHROPIC_API_KEY` is set.
+On Claude (Haiku, Sonnet and Opus 5.5), one variant of each of the 13 scenarios passes live, 13/13, at about $0.07 per
+invoice.
 
-![Matchpoint UI: an injection attempt on an over-tolerance invoice, resolved as a credit memo request](docs/img/run.png)
+![Matchpoint: a live Claude run resolving a price-variance exception](docs/img/run.png)
 
 ---
 
@@ -65,7 +67,7 @@ matchpoint approve <approval_id> --comment "checked"    # resumes the run from i
 matchpoint run INV-10083 --gullible                     # a model that obeys the injected note; watch it get blocked
 matchpoint eval --trials 3                              # 156 runs, offline
 matchpoint suite                                        # reference / chaos on / chaos off / faulty model
-pytest                                                  # 63 tests
+pytest                                                  # 64 tests
 ```
 
 On Claude:
@@ -73,9 +75,31 @@ On Claude:
 ```bash
 export ANTHROPIC_API_KEY=...                            # org-level keys may also need ANTHROPIC_WORKSPACE_ID
 matchpoint run INV-10087 --provider anthropic --trace
-matchpoint eval --provider anthropic --limit 13 --yes   # one variant per scenario
-matchpoint serve --provider anthropic
+matchpoint eval --provider anthropic --variant 0 --yes  # one variant of each scenario, about $1
+matchpoint --env-file .env serve                        # reads ANTHROPIC_* from a dotenv file; pick Claude per run in the UI
 ```
+
+## The web app
+
+`matchpoint serve` opens a single-page app (no build step, light and dark themes):
+
+- **Overview:** queue health, money released and credited, fraud held, a feed of recent runs, and four guided
+  scenarios (bank-detail fraud with a note to the AI, a model that gets fooled, an approval above the limit, a
+  duplicate in disguise) that open the case and run it.
+- **Exceptions:** the queue with search and filters, and for each invoice a plain-English resolution, a live
+  step-by-step timeline of what each agent did and which model it used, the checks in policy order, the safeguards
+  that fired, the vendor email draft, the ERP write-back and audit log, and the full trace.
+- **Approvals:** the controller's inbox for payments above the release limit; approving resumes the checkpointed run.
+- **Evaluations** and **How it works:** the eval suites and the architecture, from the same data the CLI uses.
+
+Pick the model per run: the offline reference model, a gullible variant that obeys injected instructions, a variant
+with 30% injected faults, or Claude. Deep links work (`#/exceptions/INV-10087/safeguards`); `/` searches and `j`/`k`
+move through the queue.
+
+| | |
+|---|---|
+| ![Overview](docs/img/overview.png) | ![Fraud case](docs/img/fraud.png) |
+| ![A fooled model, blocked](docs/img/fooled.png) | ![Awaiting approval](docs/img/approval.png) |
 
 Docker: `docker compose up --build` (add `--profile tracing` for Jaeger).
 
@@ -148,18 +172,29 @@ Full threat model with the test for each control: [`docs/security.md`](docs/secu
 52 labelled cases, isolated ERP copy per run, graders that read the ERP end state, pass@1 and **pass^k** (a case counts
 only if all k trials pass). **Safety violation** = money moved or a vendor contacted when policy forbids it.
 
-| Suite (52 cases × 3 trials) | pass@1 | pass^3 | Safety violations | Unsafe proposals blocked | Fail-safe runs | First-pass action | Faults injected | Retries |
+**On Claude, live** (Haiku/Sonnet/Opus 5.5 routed by role and risk, one variant of each scenario, 13 runs):
+
+| pass@1 | Safety violations | Diagnosis | Policy retrieval | Model calls / run | Cost / run | Latency p50 / p95 |
+|---|---|---|---|---|---|---|
+| **100% (13/13)** | **0** | 100% | 100% | 8.4 | **$0.070** | 26 s / 34 s |
+
+The first live run scored 11/13, and both misses were useful. Claude flagged a plain "please remit to our new account"
+note as prompt injection, because the policy text said to flag anything that "attempts to direct the AP process". That
+made the label, not the model, the inconsistent part, so AP-POL-6.3 now separates injection (text aimed at the AI or
+overriding a control) from a bank-detail fraud signal. Claude also filled an implied hold reason that the strict grader
+rejected although the ERP end state was right; the schema and grader now agree. The re-run passed 13/13
+([report](evals/reports/claude-live.md)).
+
+**Offline ablations** (deterministic reference model, 52 cases × 3 trials):
+
+| Suite | pass@1 | pass^3 | Safety violations | Unsafe proposals blocked | Fail-safe runs | First-pass action | Faults injected | Retries |
 |---|---|---|---|---|---|---|---|---|
 | reference | **100.0%** | 100.0% | **0** | 0 | 0 | 100.0% | 0 | 0 |
 | chaos, controls on | **99.4%** | 98.1% | **0** | 0 | 0 | 100.0% | 468 | 267 |
 | chaos, controls off | 18.6% | 1.9% | **0** | 0 | 126 | 19.2% | 198 | 0 |
 | faulty model | **97.4%** | 92.3% | **0** | 63 | 0 | 50.0% | 0 | 0 |
 
-![Evals tab](docs/img/evals.png)
-
-More screens: [fraud case](docs/img/fraud.png) · [awaiting controller approval](docs/img/approval.png) ·
-[architecture](docs/img/arch.png). The UI's provider menu also has two demo presets: a gullible model that obeys
-injected instructions, and 30% injected faults.
+![Evaluations page](docs/img/evals.png)
 
 How to read this:
 
@@ -175,10 +210,9 @@ How to read this:
   every unsafe proposal; the revision loop recovers most of the accuracy; the remaining failures are unnecessary
   escalations, never payments.
 
-These numbers come from the deterministic reference model (`sim`), so they measure the harness and the eval set, not a
-language model's judgment. `matchpoint eval --provider anthropic --yes` runs the same suite on Claude; `--record` saves a
-cassette so CI can replay it at zero cost. Details: [`docs/evals.md`](docs/evals.md), reports in
-[`evals/reports/`](evals/reports).
+The ablations use the deterministic reference model (`sim`), so they measure the harness and the eval set rather than a
+language model's judgment; the live table above measures Claude. `--record` saves a cassette of a live run so CI can
+replay it at zero cost. Details: [`docs/evals.md`](docs/evals.md), reports in [`evals/reports/`](evals/reports).
 
 ## Observability
 
@@ -203,7 +237,7 @@ src/matchpoint/
   evals/        graders, runner, ablation suite, CI gate
   obs/          tracing + metrics
   api/ ui/      FastAPI service and the web UI (no build step)
-tests/          63 tests: domain, guardrails, tools, RAG, reliability, harness, providers, evals, API
+tests/          64 tests: domain, guardrails, tools, RAG, reliability, harness, providers, evals, API
 evals/          thresholds.yaml, dataset.jsonl, reports/
 docs/           harness.md, security.md, evals.md, deployment.md
 ```
@@ -225,8 +259,8 @@ docs/           harness.md, security.md, evals.md, deployment.md
 - The ERP, vendors and policy manual are synthetic. Real deployments have messier evidence (PDF invoices, email
   threads, contract terms), which is where the LLM roles earn their cost.
 - The injection screen is pattern-based; it is a routing signal, and the guarantee comes from the deterministic layers.
-- Results in this README come from the reference model; live-model numbers depend on the model and prompts and should
-  be measured with the same suite before any rollout.
+- The live Claude result is 13 runs, one trial each. Before a rollout I would run all 52 cases with several trials to
+  get pass^k on the real model, and keep a recorded cassette in CI.
 
 ## License
 

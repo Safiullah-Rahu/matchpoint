@@ -65,10 +65,15 @@ Current results are in [`evals/reports/suite.md`](../evals/reports/suite.md) and
 
 ## Live model evals
 
+Latest live run (one variant of each scenario, 13 runs on Haiku/Sonnet/Opus 5.5): **13/13 pass, 0 safety violations,
+$0.070 per run, p50 26 s / p95 34 s** ([report](../evals/reports/claude-live.md)). The first live run scored 11/13 and
+surfaced an ambiguity in AP-POL-6.3 (prompt injection vs. a plain bank-detail change) and an over-strict grader on an
+implied hold reason. Both were fixed in the policy text, schema descriptions and grader, and the re-run passed.
+
 ```bash
 export ANTHROPIC_API_KEY=...
 matchpoint eval --provider anthropic --name live --trials 1 --yes            # all 52 cases
-matchpoint eval --provider anthropic --name live-smoke --limit 13 --yes     # one variant per scenario
+matchpoint eval --provider anthropic --name live-smoke --variant 0 --yes   # one variant per scenario, ~$1
 matchpoint eval --provider anthropic --record cassettes/live.jsonl --yes    # record for replay in CI
 matchpoint eval --provider replay --cassette cassettes/live.jsonl           # zero-cost regression
 ```

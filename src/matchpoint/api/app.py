@@ -72,6 +72,24 @@ def create_app(settings: Settings | None = None, *, provider: str = "sim", sim_l
     def queue():
         return svc.queue()
 
+    @app.get("/api/overview")
+    def overview():
+        runs = svc.checkpointer.runs(limit=1000)
+        return {**svc.erp.summary(), "runs": len(runs),
+                "runs_by_status": {s: sum(r["status"] == s for r in runs) for s in {r["status"] for r in runs}}}
+
+    @app.get("/api/activity")
+    def activity(limit: int = 12):
+        return svc.activity(min(limit, 50))
+
+    @app.get("/api/scenarios")
+    def scenarios():
+        return svc.scenarios()
+
+    @app.get("/api/policy")
+    def policy_index():
+        return [{"section_id": c.section_id, "title": c.title, "document": c.document} for c in corpus.chunks]
+
     @app.post("/api/runs")
     def start(body: StartRun):
         try:

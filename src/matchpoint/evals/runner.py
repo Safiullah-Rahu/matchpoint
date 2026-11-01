@@ -43,6 +43,7 @@ class EvalConfig:
     controls: Controls = field(default_factory=Controls)
     workers: int = 8
     scenarios: list[str] | None = None
+    variants: list[int] | None = None
     limit: int | None = None
     cassette: str | None = None
     record: str | None = None
@@ -131,6 +132,8 @@ def run_eval(settings: Settings, cfg: EvalConfig, *, out_dir: Path | None = None
     cases = load_cases(settings)
     if cfg.scenarios:
         cases = [c for c in cases if c["scenario"] in cfg.scenarios]
+    if cfg.variants is not None:
+        cases = [c for c in cases if c["variant"] in cfg.variants]
     if cfg.limit:
         cases = cases[: cfg.limit]
     tracer, spans = build_tracer(workdir / "matchpoint.db")

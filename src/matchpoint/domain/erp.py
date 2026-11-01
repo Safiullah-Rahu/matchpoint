@@ -136,6 +136,40 @@ class ERP:
                WHERE i.exception_code IS NOT NULL ORDER BY i.invoice_id"""
         )
 
+    def summary(self) -> dict:
+        """Queue-level numbers for the overview page. Money is summed in USD only; other currencies are counted."""
+        q = self._query
+        by_status = {r["status"]: r for r in q(
+            "SELECT status, COUNT(*) AS n, COALESCE(SUM(CASE WHEN currency='USD' THEN total END), 0) AS usd "
+            "FROM invoices WHERE exception_code IS NOT NULL GROUP BY status")}
+        holds = {r["hold_reason"]: r["n"] for r in q(
+            "SELECT hold_reason, COUNT(*) AS n FROM invoices WHERE exception_code IS NOT NULL AND status='on_hold' "
+            "GROUP BY hold_reason")}
+        by_code = {r["exception_code"]: r["n"] for r in q(
+            "SELECT exception_code, COUNT(*) AS n FROM invoices WHERE exception_code IS NOT NULL GROUP BY exception_code "
+            "ORDER BY n DESC")}
+        released = q("SELECT COALESCE(SUM(p.amount), 0) AS usd FROM payment_schedule p JOIN invoices i "
+                     "ON i.invoice_id = p.invoice_id WHERE i.currency = 'USD'")[0]["usd"]
+        credits = q("SELECT COUNT(*) AS n, COALESCE(SUM(c.amount), 0) AS usd FROM credit_memo_requests c JOIN invoices i "
+                    "ON i.invoice_id = c.invoice_id WHERE i.currency = 'USD'")[0]
+        total = sum(r["n"] for r in by_status.values())
+        open_ = by_status.get("exception", {"n": 0, "usd": 0})
+        pending = by_status.get("pending_approval", {"n": 0})["n"]
+        return {
+            "total": total,
+            "open": open_["n"],
+            "open_value_usd": round(open_["usd"], 2),
+            "resolved": total - open_["n"] - pending,
+            "awaiting_approval": pending,
+            "by_status": {k: v["n"] for k, v in by_status.items()},
+            "holds": holds,
+            "fraud_held": holds.get("BANK_VERIFICATION", 0),
+            "by_exception": by_code,
+            "released_usd": round(released, 2),
+            "credit_requested_usd": round(credits["usd"], 2),
+            "credit_requests": credits["n"],
+        }
+
     def outcome(self, invoice_id: str) -> dict:
         """Everything the system did to an invoice. Used by graders and the UI."""
         inv = self._one("SELECT status, hold_reason FROM invoices WHERE invoice_id = ?", (invoice_id,)) or {}

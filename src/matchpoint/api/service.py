@@ -81,6 +81,42 @@ class RunService:
             "erp": self.erp.outcome(run["invoice_id"]),
         }
 
+    def activity(self, limit: int = 12) -> list[dict]:
+        """Recent runs with their outcome, for the overview feed."""
+        out = []
+        for r in self.checkpointer.runs(limit=limit):
+            cp = self.checkpointer.latest(r["run_id"])
+            state = json.loads(cp["state"]) if cp else {}
+            res, snap = state.get("resolution") or {}, state.get("snapshot") or {}
+            out.append({
+                "run_id": r["run_id"], "invoice_id": r["invoice_id"], "status": r["status"], "provider": r["provider"],
+                "created_at": r["created_at"], "updated_at": r["updated_at"],
+                "vendor_name": snap.get("vendor_name"), "invoice_number": snap.get("invoice_number"),
+                "currency": snap.get("currency"), "total": snap.get("total"),
+                "action": res.get("action"), "hold_reason": res.get("hold_reason"),
+                "escalate_to": res.get("escalate_to"), "amount": res.get("amount"),
+                "flags": state.get("flags") or [], "revisions": state.get("revisions", 0),
+                "cost_usd": (state.get("usage") or {}).get("cost_usd", 0.0),
+            })
+        return out
+
+    def scenarios(self) -> list[dict]:
+        """One invoice per scenario for the guided demo cards: the first still-open variant, else the first."""
+        path = self.settings.home / "eval_cases.jsonl"
+        if not path.exists():
+            return []
+        status = {row["invoice_id"]: row["status"] for row in self.erp.exception_queue()}
+        picked: dict[str, dict] = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            c = json.loads(line)
+            inv = c["invoice_id"]
+            current = picked.get(c["scenario"])
+            if current is None or (current["status"] != "exception" and status.get(inv) == "exception"):
+                picked[c["scenario"]] = {"scenario": c["scenario"], "invoice_id": inv, "status": status.get(inv)}
+        return list(picked.values())
+
     def queue(self) -> list[dict]:
         latest: dict[str, dict] = {}
         for r in self.checkpointer.runs(limit=1000):

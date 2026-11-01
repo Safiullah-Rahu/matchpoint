@@ -146,9 +146,10 @@ def cmd_eval(settings, args) -> int:
     cfg = EvalConfig(name=args.name, provider=args.provider, trials=args.trials, chaos=args.chaos,
                      mistake_rate=args.mistakes, gullible=args.gullible,
                      controls=Controls.off() if args.controls_off else Controls(), workers=args.workers,
-                     scenarios=args.scenario, limit=args.limit, cassette=args.cassette, record=args.record, seed=args.seed)
+                     scenarios=args.scenario, variants=args.variant, limit=args.limit, cassette=args.cassette,
+                     record=args.record, seed=args.seed)
     if args.provider == "anthropic" and not args.yes:
-        n = (args.limit or 52) * args.trials
+        n = (args.limit or (13 * len(args.variant) if args.variant else 52)) * args.trials
         print(f"{YELLOW}This calls the Claude API for ~{n} runs (~10 calls each). Re-run with --yes to confirm.{RESET}")
         return 2
     rep = run_eval(settings, cfg, out_dir=Path(args.out) if args.out else None)
@@ -200,6 +201,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="matchpoint", description="Agent harness for AP invoice exceptions.")
     p.add_argument("--home", help="data directory (default ./var or $MATCHPOINT_HOME)")
     p.add_argument("--config", help="YAML config (default: packaged default_config.yaml)")
+    p.add_argument("--env-file", help="dotenv file to read ANTHROPIC_API_KEY / ANTHROPIC_WORKSPACE_ID from")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def provider_args(sp, chaos=True):
@@ -244,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--trials", type=int, default=1)
     sp.add_argument("--controls-off", action="store_true", help="ablation: disable retries/fallback/repair/nudges")
     sp.add_argument("--scenario", action="append", help="restrict to scenario(s)")
+    sp.add_argument("--variant", action="append", type=int, help="restrict to variant(s) 0-3, e.g. --variant 0")
     sp.add_argument("--limit", type=int)
     sp.add_argument("--workers", type=int, default=8)
     sp.add_argument("--gate", help="thresholds YAML; exit 1 if not met")
@@ -268,11 +271,29 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def load_env_file(path: str) -> list[str]:
+    """Load ANTHROPIC_* variables from a dotenv file (other keys are ignored). Existing env vars win."""
+    loaded = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        key, value = key.strip(), value.strip().strip('"').strip("'")
+        if key.startswith("ANTHROPIC_") and value and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    return loaded
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
+    if args.env_file:
+        loaded = load_env_file(args.env_file)
+        print(f"{DIM}loaded {', '.join(loaded) or 'no ANTHROPIC_* variables'} from {args.env_file}{RESET}")
     settings = load_settings(args.config, home=args.home)
     if args.cmd not in ("seed",) and not settings.erp_db.exists():
         from .domain.seed import seed

@@ -50,6 +50,21 @@ def test_approval_over_http(client, cases):
     assert client.post(f"/api/approvals/{approval_id}", json={"approved": True}).status_code == 409
 
 
+def test_overview_activity_and_scenarios(client, cases):
+    ov = client.get("/api/overview").json()
+    assert ov["total"] == 52 and ov["open"] == 52 and ov["resolved"] == 0
+    inv = cases["bank_change_fraud-0"]["invoice_id"]
+    run_id = client.post("/api/runs", json={"invoice_id": inv}).json()["run_id"]
+    _wait(client, run_id)
+    ov = client.get("/api/overview").json()
+    assert ov["open"] == 51 and ov["fraud_held"] == 1 and ov["runs"] == 1
+    feed = client.get("/api/activity").json()
+    assert feed[0]["invoice_id"] == inv and feed[0]["action"] == "HOLD" and "FRAUD_SUSPECTED" in feed[0]["flags"]
+    picks = {s["scenario"]: s for s in client.get("/api/scenarios").json()}
+    assert len(picks) == 13 and picks["bank_change_fraud"]["invoice_id"] != inv  # next open variant
+    assert len(client.get("/api/policy").json()) == 24
+
+
 def test_policy_and_unknowns(client):
     assert client.get("/api/policy/AP-POL-6.2").json()["title"].startswith("Bank detail")
     assert client.get("/api/policy/AP-POL-0.0").status_code == 404

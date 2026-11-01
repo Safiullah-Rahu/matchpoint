@@ -3,64 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Matchpoint · AP exception desk</title>
+  <title>Matchpoint · AP Exception Desk</title>
+  <meta name="description" content="Agentic accounts-payable exception desk with deterministic controls, human approval and evals.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%235b5bd6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/ui/styles.css?v=0.1.1">
+  <script>
+    try { const t = localStorage.getItem("mp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="/ui/styles.css?v=0.2.1">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="name">Matchpoint</span>
-      <span class="sub">AP exception desk · agent harness</span>
-    </div>
-    <nav class="tabs" role="tablist">
-      <button data-tab="queue" class="active">Exception queue</button>
-      <button data-tab="approvals">Approvals <span id="appr-count" class="count" hidden></span></button>
-      <button data-tab="evals">Evals</button>
-      <button data-tab="arch">Architecture</button>
+    <a class="brand" href="#/overview" aria-label="Matchpoint home">
+      <span class="mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+      <span class="brand-name">Matchpoint</span>
+      <span class="brand-sub">AP Exception Desk</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/overview" data-nav="overview">Overview</a>
+      <a href="#/exceptions" data-nav="exceptions">Exceptions</a>
+      <a href="#/approvals" data-nav="approvals">Approvals <span id="appr-badge" class="badge" hidden></span></a>
+      <a href="#/evals" data-nav="evals">Evaluations</a>
+      <a href="#/how" data-nav="how">How it works</a>
     </nav>
-    <div class="right">
-      <span id="provider-pill" class="pill"></span>
-      <button id="reset" class="ghost" title="Re-seed the synthetic ERP and clear runs">Reset demo data</button>
+    <div class="top-right">
+      <span id="env" class="env" title="Model provider"><span class="dot"></span><span id="env-text">Demo data</span></span>
+      <button id="theme" class="icon-btn" title="Toggle light / dark" aria-label="Toggle theme"></button>
+      <button id="reset" class="icon-btn" title="Reset demo data" aria-label="Reset demo data"></button>
     </div>
   </header>
 
   <main>
-    <section id="tab-queue" class="tab active">
+    <section class="view" id="view-overview"><div class="page"><div class="wrap" id="overview"></div></div></section>
+    <section class="view" id="view-exceptions">
       <aside class="queue">
-        <div class="queue-head">
-          <input id="q" type="search" placeholder="Filter by vendor, invoice or code" autocomplete="off">
-          <div class="chips" id="filters">
-            <button data-f="all" class="active">All</button>
-            <button data-f="exception">Open</button>
-            <button data-f="done">Resolved</button>
-            <button data-f="security">Security</button>
+        <div class="queue-top">
+          <div class="queue-title"><h2>Exceptions</h2><span class="faint small num" id="q-count"></span></div>
+          <div class="search">
+            <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input id="q" type="search" placeholder="Search vendor, invoice or type" autocomplete="off" aria-label="Search exceptions">
+            <kbd>/</kbd>
+          </div>
+          <div class="seg" id="filters" role="tablist">
+            <button data-f="open" class="active">Open<span class="n" id="n-open"></span></button>
+            <button data-f="done">Resolved<span class="n" id="n-done"></span></button>
+            <button data-f="flagged">Flagged<span class="n" id="n-flagged"></span></button>
+            <button data-f="all">All<span class="n" id="n-all"></span></button>
           </div>
         </div>
-        <div id="queue-list" class="queue-list"></div>
+        <div class="list" id="list" role="listbox" aria-label="Exception invoices"></div>
       </aside>
-      <div id="detail" class="detail">
-        <div class="empty">
-          <h2>Select an invoice</h2>
-          <p>Each invoice in the queue failed automatic matching. Run the agent to investigate it, apply AP policy, and
-            resolve it, with every step traced and every money-moving action checked by deterministic controls.</p>
-        </div>
-      </div>
+      <div class="detail" id="detail"></div>
     </section>
-
-    <section id="tab-approvals" class="tab"><div class="page" id="approvals"></div></section>
-    <section id="tab-evals" class="tab"><div class="page" id="evals"></div></section>
-    <section id="tab-arch" class="tab"><div class="page" id="arch"></div></section>
+    <section class="view" id="view-approvals"><div class="page"><div class="wrap" id="approvals"></div></div></section>
+    <section class="view" id="view-evals"><div class="page"><div class="wrap" id="evals"></div></div></section>
+    <section class="view" id="view-how"><div class="page"><div class="wrap" id="how"></div></div></section>
   </main>
 
-  <div id="drawer" class="drawer" aria-hidden="true">
-    <div class="drawer-head"><h3 id="drawer-title"></h3><button id="drawer-close" class="ghost" aria-label="Close">✕</button></div>
+  <div id="scrim" class="scrim"></div>
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head"><h3 id="drawer-title"></h3><button id="drawer-close" class="icon-btn" aria-label="Close"></button></div>
     <div id="drawer-body" class="drawer-body"></div>
-  </div>
-  <div id="toast" class="toast" hidden></div>
-  <script src="/ui/app.js?v=0.1.1"></script>
+  </aside>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="/ui/app.js?v=0.2.1"></script>
 </body>
 </html>
