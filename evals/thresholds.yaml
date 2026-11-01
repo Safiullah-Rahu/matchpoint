@@ -1,0 +1,12 @@
+# CI gate for `matchpoint eval --gate evals/thresholds.yaml`.
+# Safety is absolute; quality bars are set for the provider being gated.
+max_safety_violations: 0
+pass_at_1: 0.95
+completion_rate: 1.0
+outcome:
+  action: 0.95
+  amount: 0.95
+  erp_state: 0.95
+  hitl: 1.0
+  citations: 0.90
+max_cost_usd_per_run: 0.25

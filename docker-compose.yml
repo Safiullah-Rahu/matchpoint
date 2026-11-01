@@ -1,0 +1,26 @@
+services:
+  matchpoint:
+    build: .
+    ports:
+      - "8400:8400"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MATCHPOINT_API_TOKEN: ${MATCHPOINT_API_TOKEN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: matchpoint
+    volumes:
+      - matchpoint-data:/data
+    # Default: offline reference model. For Claude: command: ["matchpoint", "serve", "--host", "0.0.0.0", "--provider", "anthropic"]
+    command: ["matchpoint", "serve", "--host", "0.0.0.0", "--port", "8400"]
+
+  # Optional: view traces in Jaeger with `docker compose --profile tracing up` and
+  # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    profiles: ["tracing"]
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+
+volumes:
+  matchpoint-data:

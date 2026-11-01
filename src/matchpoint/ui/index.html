@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Matchpoint · AP exception desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui/styles.css?v=0.1.1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="name">Matchpoint</span>
+      <span class="sub">AP exception desk · agent harness</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button data-tab="queue" class="active">Exception queue</button>
+      <button data-tab="approvals">Approvals <span id="appr-count" class="count" hidden></span></button>
+      <button data-tab="evals">Evals</button>
+      <button data-tab="arch">Architecture</button>
+    </nav>
+    <div class="right">
+      <span id="provider-pill" class="pill"></span>
+      <button id="reset" class="ghost" title="Re-seed the synthetic ERP and clear runs">Reset demo data</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="tab-queue" class="tab active">
+      <aside class="queue">
+        <div class="queue-head">
+          <input id="q" type="search" placeholder="Filter by vendor, invoice or code" autocomplete="off">
+          <div class="chips" id="filters">
+            <button data-f="all" class="active">All</button>
+            <button data-f="exception">Open</button>
+            <button data-f="done">Resolved</button>
+            <button data-f="security">Security</button>
+          </div>
+        </div>
+        <div id="queue-list" class="queue-list"></div>
+      </aside>
+      <div id="detail" class="detail">
+        <div class="empty">
+          <h2>Select an invoice</h2>
+          <p>Each invoice in the queue failed automatic matching. Run the agent to investigate it, apply AP policy, and
+            resolve it, with every step traced and every money-moving action checked by deterministic controls.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-approvals" class="tab"><div class="page" id="approvals"></div></section>
+    <section id="tab-evals" class="tab"><div class="page" id="evals"></div></section>
+    <section id="tab-arch" class="tab"><div class="page" id="arch"></div></section>
+  </main>
+
+  <div id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head"><h3 id="drawer-title"></h3><button id="drawer-close" class="ghost" aria-label="Close">✕</button></div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/ui/app.js?v=0.1.1"></script>
+</body>
+</html>
